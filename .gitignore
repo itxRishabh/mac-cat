@@ -1,0 +1,5 @@
+.build/
+dist/
+renderout/
+*.log
+.DS_Store
