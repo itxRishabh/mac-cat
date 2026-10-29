@@ -1,0 +1,5 @@
+*.swift text
+*.py text
+*.md text
+*.sh text eol=lf
+*.png binary
