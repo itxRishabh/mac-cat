@@ -27,8 +27,7 @@ final class PetPanel: NSPanel {
         hidesOnDeactivate = false
         acceptsMouseMovedEvents = true
 
-        let hosting = NSHostingView(rootView: PetOverlayView(store: AppDelegateBridge.shared.store,
-                                                            onClose: { [weak self] in self?.orderOut(nil) }))
+        let hosting = NSHostingView(rootView: PetOverlayView(store: AppDelegateBridge.shared.store))
         hosting.frame = contentRect
         hosting.autoresizingMask = [.width, .height]
         hosting.wantsLayer = true
@@ -57,7 +56,7 @@ final class PetPanel: NSPanel {
     // MARK: Dragging
 
     override func mouseDown(with event: NSEvent) {
-        guard let view = contentView else { return }
+        guard contentView != nil else { return }
         dragOrigin = frame.origin
         mouseDownOrigin = NSEvent.mouseLocation
         isDragging = false

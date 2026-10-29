@@ -49,6 +49,14 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
+# Bundle the local illustration animations (cats + flowers) into the app,
+# so the illustrated mode works no matter where the .app is launched from.
+if [ -d "local/illustrations" ]; then
+  mkdir -p "${APP_BUNDLE}/Contents/Resources/illustrations"
+  cp -f local/illustrations/*.webp local/illustrations/*.gif "${APP_BUNDLE}/Contents/Resources/illustrations/" 2>/dev/null
+  echo "  bundled illustrations"
+fi
+
 # Ad-hoc signature so macOS lets it launch without a developer cert.
 codesign --force --deep --sign - "${APP_BUNDLE}" 2>/dev/null || echo "  (codesign skipped)"
 

@@ -6,15 +6,12 @@ import Foundation
 struct SettingsView: View {
 
     @ObservedObject var store: Store
+    @ObservedObject private var art = CatArt.shared
 
-    @State private var apiKeyDraft: String = ""
     @State private var reminderTitleDraft: String = ""
     @State private var reminderMinutesDraft: Double = 30
-    @State private var memoryDraft: String = ""
-    @State private var didLoadKey: Bool = false
 
     private let accent = Color(hex: 0x7B61FF)
-    private let cardRadius: CGFloat = 14
 
     // MARK: - Root
 
@@ -23,44 +20,37 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 24) {
                 header
                 petSection
-                aiSection
+                artSection
                 routineSection
                 remindersSection
-                memorySection
                 footerNote
             }
             .padding(24)
+            .frame(width: 520)
         }
-        .frame(minWidth: 560, minHeight: 480)
-        .background(background)
-        .onAppear(perform: loadKeyIfNeeded)
+        .frame(minWidth: 540, minHeight: 520)
+        .background(
+            ZStack {
+                Color(nsColor: .windowBackgroundColor)
+                LinearGradient(
+                    colors: [accent.opacity(0.10), .clear],
+                    startPoint: .topTrailing,
+                    endPoint: .bottomLeading
+                )
+            }
+            .ignoresSafeArea()
+        )
     }
 
-    // MARK: - Background & header
-
-    private var background: some View {
-        ZStack {
-            Color(nsColor: .windowBackgroundColor)
-            LinearGradient(
-                colors: [accent.opacity(0.10), .clear],
-                startPoint: .topTrailing,
-                endPoint: .bottomLeading
-            )
-        }
-        .ignoresSafeArea()
-    }
+    // MARK: - Header
 
     private var header: some View {
         HStack(spacing: 12) {
             ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [accent, accent.opacity(0.65)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                Circle().fill(
+                    LinearGradient(colors: [accent, accent.opacity(0.65)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                )
                 Text(String(store.settings.petName.prefix(1)).uppercased())
                     .font(.system(size: 16, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
@@ -74,7 +64,6 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-
             Spacer(minLength: 8)
         }
     }
@@ -82,188 +71,48 @@ struct SettingsView: View {
     // MARK: - Pet
 
     private var petSection: some View {
-        SettingsCard(title: "Pet", subtitle: "Who lives on your desktop") {
-            VStack(alignment: .leading, spacing: 18) {
-                // Name
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("NAME")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .tracking(0.8)
-                    TextField("Pet name", text: petNameBinding)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.body)
-                }
-
-                // Species grid
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("BREED")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .tracking(0.8)
-
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4),
-                              spacing: 10) {
-                        ForEach(PetSpecies.allCases) { species in
-                            speciesCell(species)
-                        }
-                    }
-                }
-
-                // Accessory
-                HStack(alignment: .firstTextBaseline) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("ACCESSORY")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .tracking(0.8)
-                        Picker("Accessory", selection: accessoryBinding) {
-                            ForEach(Accessory.allCases) { item in
-                                Text(item.displayName).tag(item)
-                            }
-                        }
-                        .labelsHidden()
-                        .pickerStyle(.menu)
-                        .frame(maxWidth: 220, alignment: .leading)
-                    }
-                    Spacer(minLength: 12)
-                    paletteSwatch
-                }
-            }
-        }
-    }
-
-    private func speciesCell(_ species: PetSpecies) -> some View {
-        let isSelected = store.species == species
-        return Button {
-            store.species = species
-        } label: {
-            VStack(spacing: 6) {
-                ZStack {
-                    Circle()
-                        .fill(species.palette.base)
-                    Circle()
-                        .strokeBorder(species.palette.shade.opacity(0.7), lineWidth: 1)
-                        .padding(2)
-                    Text(String(species.displayName.prefix(1)))
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundStyle(species.palette.shade)
-                }
-                .frame(width: 30, height: 30)
-
-                Text(species.displayName)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-
-                Text(species.blurb)
-                    .font(.caption2)
+        SettingsCard(title: "Pet", subtitle: "Your desktop companion") {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("NAME")
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(height: 32, alignment: .top)
+                    .tracking(0.8)
+                TextField("Pet name", text: petNameBinding)
+                    .textFieldStyle(.roundedBorder)
             }
-            .padding(.vertical, 10)
-            .padding(.horizontal, 6)
-            .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
-                    .fill(isSelected ? accent.opacity(0.12) : Color.primary.opacity(0.045))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
-                    .strokeBorder(isSelected ? accent : Color.primary.opacity(0.10),
-                                  lineWidth: isSelected ? 2 : 1)
-            )
-            .contentShape(RoundedRectangle(cornerRadius: cardRadius, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .help(species.blurb)
-    }
-
-    private var paletteSwatch: some View {
-        let palette = store.species.palette
-        let swatches: [(String, Color)] = [
-            ("Base", palette.base),
-            ("Shade", palette.shade),
-            ("Belly", palette.belly),
-            ("Inner ear", palette.innerEar),
-            ("Nose", palette.nose),
-            ("Eye", palette.eye)
-        ]
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("PALETTE")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .tracking(0.8)
-            HStack(spacing: 6) {
-                ForEach(0..<swatches.count, id: \.self) { index in
-                    Circle()
-                        .fill(swatches[index].1)
-                        .overlay(Circle().strokeBorder(Color.primary.opacity(0.15), lineWidth: 1))
-                        .frame(width: 18, height: 18)
-                        .help(swatches[index].0)
-                }
-            }
-            Text(store.species.displayName)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
         }
     }
 
-    // MARK: - AI
+    // MARK: - Art
 
-    private var aiSection: some View {
-        SettingsCard(title: "AI", subtitle: "Claude powers the conversation") {
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("API KEY")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .tracking(0.8)
-                    HStack(spacing: 8) {
-                        SecureField("sk-ant-…", text: $apiKeyDraft)
-                            .textFieldStyle(.roundedBorder)
-                        Button("Save Key") {
-                            persistAPIKey()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }
-                    Text("Your key is stored in the macOS Keychain and never leaves this device except to call Anthropic's API.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Divider()
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("MODEL")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .tracking(0.8)
-                    Picker("Model", selection: modelBinding) {
-                        ForEach(ModelCatalog.options, id: \.self) { option in
-                            Text(option).tag(option)
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .frame(maxWidth: 260, alignment: .leading)
-
-                    if store.settings.model != ModelCatalog.current {
-                        Text("Saved as \(store.settings.model). The shared catalog still points at \(ModelCatalog.current), so it will be used until that constant is updated.")
-                            .font(.caption)
+    private var artSection: some View {
+        SettingsCard(title: "Art", subtitle: "Furever Dock illustrations, played as video") {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: art.hasImages ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                        .foregroundStyle(art.hasImages ? .green : .orange)
+                    if art.hasImages {
+                        Text(art.sourceDescription)
+                            .font(.caption.monospaced())
                             .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
                     } else {
-                        Text("Requests are sent to \(ModelCatalog.current).")
+                        Text("No illustration files found — drop the .webp + flowers.gif files into  local/illustrations  then reopen PCCat.")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
+                }
+                HStack(spacing: 10) {
+                    Button("Rescan folders") {
+                        art.rescan()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    Text("Idle · morning · play · meditating · sleep — each plays as a looping animation.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                 }
             }
         }
@@ -273,27 +122,24 @@ struct SettingsView: View {
 
     private var routineSection: some View {
         SettingsCard(title: "Routine", subtitle: "Your pet keeps time with you") {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
                 Toggle(isOn: dailyRoutineBinding) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Follow my daily rhythm")
                             .font(.body.weight(.medium))
-                        Text("9:00 AM wake & stretch · 10:30 AM assist · 2:30 PM play · 4:30 PM break · 9:30 PM sleep")
+                        Text("9:00 AM stretch · 10:30 AM assist · 2:30 PM play · 4:30 PM break · 9:30 PM nap")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .toggleStyle(.switch)
-                .disabled(!store.settings.dailyRoutineEnabled)
 
                 Divider()
 
-                Toggle("Show reminders", isOn: showRemindersBinding)
+                Toggle("Show reminder popups", isOn: showRemindersBinding)
                     .toggleStyle(.switch)
-                Toggle("Sound effects", isOn: soundBinding)
-                    .toggleStyle(.switch)
-                Toggle("Allow GIFs in chat", isOn: giphyBinding)
+                Toggle("Sound when a reminder fires", isOn: soundBinding)
                     .toggleStyle(.switch)
             }
         }
@@ -376,101 +222,17 @@ struct SettingsView: View {
         .padding(.vertical, 8)
     }
 
-    // MARK: - Memory
-
-    private var memorySection: some View {
-        SettingsCard(title: "Memory", subtitle: "What your cat knows about you") {
-            VStack(alignment: .leading, spacing: 12) {
-                if store.memories.isEmpty {
-                    Text("Nothing remembered yet. Try telling your cat a fact — it may save it for later.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.vertical, 6)
-                } else {
-                    VStack(spacing: 0) {
-                        ForEach(store.memories) { memory in
-                            memoryRow(memory)
-                            if memory.id != store.memories.last?.id {
-                                Divider().opacity(0.5)
-                            }
-                        }
-                    }
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Color.primary.opacity(0.04))
-                    )
-                }
-
-                HStack(spacing: 8) {
-                    TextField("Remember that…", text: $memoryDraft)
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit(addMemory)
-                    Button {
-                        addMemory()
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(memoryDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
-        }
-    }
-
-    private func memoryRow(_ memory: PetMemory) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: "brain")
-                .font(.caption)
-                .foregroundStyle(accent)
-                .frame(width: 16)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(memory.text)
-                    .font(.callout)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(memory.date.formatted(date: .abbreviated, time: .shortened))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 8)
-            Button {
-                store.removeMemory(memory)
-            } label: {
-                Image(systemName: "trash")
-                    .font(.caption)
-            }
-            .buttonStyle(.borderless)
-            .foregroundStyle(.secondary)
-            .help("Forget this")
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-    }
+    // MARK: - Footer
 
     private var footerNote: some View {
-        Text("PCCat keeps everything on this machine. Conversations, memories and reminders live in Application Support; the API key lives in the Keychain.")
+        Text("PCCat keeps everything on this machine. Settings and reminders live in Application Support; the illustration files live in your local/illustrations folder.")
             .font(.caption2)
             .foregroundStyle(.tertiary)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.top, 4)
     }
 
-    // MARK: - Actions
-
-    private func loadKeyIfNeeded() {
-        guard !didLoadKey else { return }
-        didLoadKey = true
-        if apiKeyDraft.isEmpty {
-            apiKeyDraft = KeychainHelper.read() ?? ""
-        }
-    }
-
-    private func persistAPIKey() {
-        let trimmed = apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        KeychainHelper.save(trimmed)
-        store.settings.apiKey = trimmed
-        store.saveNow()
-    }
+    // MARK: - Actions & bindings
 
     private func addReminder() {
         let title = reminderTitleDraft.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -480,70 +242,30 @@ struct SettingsView: View {
         reminderMinutesDraft = 30
     }
 
-    private func addMemory() {
-        let text = memoryDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        store.addMemory(text)
-        memoryDraft = ""
-    }
-
-    // MARK: - Bindings
-
     private var petNameBinding: Binding<String> {
-        Binding(
-            get: { store.settings.petName },
-            set: { store.settings.petName = $0 }
-        )
-    }
-
-    private var accessoryBinding: Binding<Accessory> {
-        Binding(
-            get: { store.accessory },
-            set: { store.accessory = $0 }
-        )
-    }
-
-    private var modelBinding: Binding<String> {
-        Binding(
-            get: { store.settings.model },
-            set: { store.settings.model = $0 }
-        )
+        Binding(get: { store.settings.petName },
+                set: { store.settings.petName = $0 })
     }
 
     private var dailyRoutineBinding: Binding<Bool> {
-        Binding(
-            get: { store.settings.dailyRoutineEnabled },
-            set: { store.settings.dailyRoutineEnabled = $0 }
-        )
+        Binding(get: { store.settings.dailyRoutineEnabled },
+                set: { store.settings.dailyRoutineEnabled = $0 })
     }
 
     private var showRemindersBinding: Binding<Bool> {
-        Binding(
-            get: { store.settings.showReminders },
-            set: { store.settings.showReminders = $0 }
-        )
+        Binding(get: { store.settings.showReminders },
+                set: { store.settings.showReminders = $0 })
     }
 
     private var soundBinding: Binding<Bool> {
-        Binding(
-            get: { store.settings.soundEnabled },
-            set: { store.settings.soundEnabled = $0 }
-        )
-    }
-
-    private var giphyBinding: Binding<Bool> {
-        Binding(
-            get: { store.settings.giphyEnabled },
-            set: { store.settings.giphyEnabled = $0 }
-        )
+        Binding(get: { store.settings.soundEnabled },
+                set: { store.settings.soundEnabled = $0 })
     }
 }
 
 // MARK: - Card chrome
 
-/// A titled group of controls with a soft card background.
 private struct SettingsCard<Content: View>: View {
-
     let title: String
     let subtitle: String?
     @ViewBuilder var content: Content

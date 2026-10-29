@@ -1,36 +1,24 @@
 import SwiftUI
 import AppKit
 
-/// The transparent overlay that lives on the desktop: cat, speech bubble,
-/// quick actions and the chat panel.
+/// The transparent overlay that lives on the desktop: the animated Furever Dock
+/// cat, its speech bubble, and quick actions.
 struct PetOverlayView: View {
 
     @ObservedObject var store: Store
     @ObservedObject private var brain: PetBrain
-    var onClose: () -> Void
+    @ObservedObject private var art = CatArt.shared
 
-    @State private var chatOpen = false
     @State private var showActions = false
     @State private var hovering = false
-    @State private var dragOffset: CGSize = .zero
-    @State private var bounce: CGFloat = 0
 
-    init(store: Store, onClose: @escaping () -> Void) {
+    init(store: Store) {
         self.store = store
-        self.onClose = onClose
         self.brain = store.brain
     }
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // Chat panel floats above the pet when opened.
-            if chatOpen {
-                ChatPanel(store: store)
-                    .frame(width: 380, height: 520)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .zIndex(10)
-            }
-
             VStack(spacing: 0) {
                 if let text = store.bubbleText {
                     SpeechBubble(text: text, kind: store.bubbleKind)
@@ -40,62 +28,57 @@ struct PetOverlayView: View {
                 }
 
                 ZStack {
-                    CatCanvas(brain: brain, store: store)
-                        .frame(width: 260, height: 260)
-                        .scaleEffect(store.settings.scale)
-                        .offset(y: bounce)
-                        .shadow(color: .black.opacity(0.10), radius: 12, y: 8)
-                        .onTapGesture { store.pet() }
-                        .onHover { hovering = $0 }
+                    if art.hasImages {
+                        // Little flowers loop, Furever Dock-style, next to the cat.
+                        FlowersView(art: art, size: 92)
+                            .offset(x: -128, y: 44)
+
+                        CatAnimationView(art: art, size: 300)
+                            .onTapGesture { store.pet() }
+                            .onHover { hovering = $0 }
+                    } else {
+                        missingArt
+                    }
 
                     if hovering || showActions {
                         QuickActions(store: store, showActions: $showActions)
-                            .offset(y: -6)
+                            .offset(y: -8)
                             .transition(.move(edge: .top).combined(with: .opacity))
                             .zIndex(8)
                     }
                 }
-                .frame(height: 260)
+                .frame(height: 320)
             }
-            .offset(dragOffset)
         }
-        .frame(width: 400, height: 700)
-        .onReceive(NotificationCenter.default.publisher(for: .pcCatOpenChat)) { _ in
-            withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { chatOpen = true }
+        .frame(width: 400, height: 460)
+        .onAppear {
+            art.startClock()
+            art.playFlowers()
+            art.play(CatArt.kind(for: brain.activity))
         }
         .onReceive(NotificationCenter.default.publisher(for: .pcCatPetClicked)) { _ in
-            withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { chatOpen.toggle() }
+            store.pet()
+        }
+        .onReceive(brain.$activity.dropFirst().removeDuplicates()) { activity in
+            art.play(CatArt.kind(for: activity))
         }
         .animation(.spring(response: 0.34, dampingFraction: 0.80), value: store.bubbleText)
-        .animation(.spring(response: 0.30, dampingFraction: 0.82), value: chatOpen)
         .animation(.spring(response: 0.30, dampingFraction: 0.82), value: showActions)
     }
-}
 
-// MARK: - Canvas host
-
-/// Bridges the 60fps skeleton into SwiftUI's Canvas.
-struct CatCanvas: View {
-    @ObservedObject var brain: PetBrain
-    @ObservedObject var store: Store
-
-    var body: some View {
-        Canvas(rendersAsynchronously: false) { ctx, size in
-            let renderer = CatRenderer(
-                skeleton: brain.skeleton,
-                palette: store.species.palette,
-                blink: brain.blink,
-                earTwitch: brain.earTwitch,
-                tailWag: brain.tailWag,
-                mouthOpen: brain.mouthOpen,
-                headTilt: brain.headTilt,
-                eyeLook: brain.eyeLook,
-                accessory: store.accessory,
-                isSpeaking: store.isThinking,
-                facingRight: store.facingRight
-            )
-            renderer.draw(in: ctx, size: size)
+    private var missingArt: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "pawprint")
+                .font(.system(size: 44))
+                .foregroundStyle(.secondary)
+            Text("No cat art found")
+                .font(.callout.weight(.medium))
+            Text("Drop the .webp files into  local/illustrations  \nor use Settings → Art style.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
+        .frame(width: 240, height: 240)
     }
 }
 
@@ -123,7 +106,7 @@ struct SpeechBubble: View {
             }
             Text(text)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundStyle(kind == .happy || kind == .alert || kind == .thought ? Color.primary : Color.primary)
+                .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
                 .multilineTextAlignment(.leading)
         }
@@ -152,27 +135,14 @@ struct QuickActions: View {
     @ObservedObject var store: Store
     @Binding var showActions: Bool
 
-    private let tricks = ["Sit", "High Five", "Spin"]
-
     var body: some View {
         HStack(spacing: 8) {
-            Button {
-                store.giveFood()
-            } label: { pill("🍽️", "Feed") }
-
-            Button {
-                store.giveWater()
-            } label: { pill("💧", "Water") }
-
-            ForEach(tricks, id: \.self) { trick in
-                Button {
-                    store.playTrick(trick)
-                } label: { pill("🎾", trick) }
-            }
-
-            Button {
-                store.pet()
-            } label: { pill("🤍", "Pet") }
+            pill("🍽️", "Feed") { store.giveFood() }
+            pill("💧", "Water") { store.giveWater() }
+            pill("🧘", "Meditate") { store.meditate() }
+            pill("🎾", "Play") { store.playTrick() }
+            pill("🌙", "Nap") { store.nap() }
+            pill("🤍", "Pet") { store.pet() }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
@@ -184,16 +154,19 @@ struct QuickActions: View {
         .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
     }
 
-    private func pill(_ emoji: String, _ label: String) -> some View {
-        HStack(spacing: 4) {
-            Text(emoji).font(.system(size: 12))
-            Text(label)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundStyle(.primary)
+    private func pill(_ emoji: String, _ label: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Text(emoji).font(.system(size: 12))
+                Text(label)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.primary)
+            }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(Color.primary.opacity(0.08)))
+            .contentShape(Capsule())
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 5)
-        .background(Capsule().fill(Color.primary.opacity(0.08)))
-        .contentShape(Capsule())
+        .buttonStyle(.plain)
     }
 }

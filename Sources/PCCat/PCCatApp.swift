@@ -8,14 +8,44 @@ struct PCCatApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     init() {
-        // Headless render harness: `PCCat --render-tests <dir>`
-        let args = CommandLine.arguments
-        if let idx = args.firstIndex(of: "--render-tests") {
-            let dir = idx + 1 < args.count ? args[idx + 1] : "./renderout"
-            MainActor.assumeIsolated {
-                RenderTests.run(outputDir: dir)
-            }
+        // Self-test: `PCCat --check-art` decodes every bundled animation and
+        // reports frame counts / loop durations, then exits.
+        if CommandLine.arguments.contains("--check-art") {
+            checkArt()
             exit(0)
+        }
+    }
+
+    private func checkArt() {
+        // Bundled resources first, then the repo-local folder walk.
+        var dirs: [URL] = []
+        if let res = Bundle.main.resourceURL?.appendingPathComponent("illustrations", isDirectory: true) {
+            dirs.append(res)
+        }
+        var dir = Bundle.main.bundleURL
+        for _ in 0..<9 {
+            dirs.append(dir.appendingPathComponent("local/illustrations", isDirectory: true))
+            let up = dir.deletingLastPathComponent()
+            if up.path == dir.path { break }
+            dir = up
+        }
+        let names = ["hero-cat.webp", "morning-cat.webp", "play-cat.webp",
+                     "break-cat.webp", "sleep-cat.webp", "flowers.gif"]
+        print("Searching \(dirs.count) directories")
+        for name in names {
+            var found: URL?
+            for d in dirs where FileManager.default.fileExists(atPath: d.appendingPathComponent(name).path) {
+                found = d.appendingPathComponent(name)
+                break
+            }
+            guard let url = found else { print("  \(name): MISSING"); continue }
+            let anim = decodeWebpFrames(url, maxDim: 480)
+            if let anim {
+                let mem = Double(anim.frames.count) * 480.0 * 480.0 * 4.0
+                print("  \(name): \(anim.frames.count) frames, \(String(format: "%.1f", anim.total))s loop, ~\(Int(mem / 1024 / 1024)) MB decoded")
+            } else {
+                print("  \(name): decode FAILED")
+            }
         }
     }
 
@@ -67,7 +97,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let menu = NSMenu()
         menu.addItem(withTitle: "Show \(store.settings.petName)", action: #selector(showCat), keyEquivalent: "")
-        menu.addItem(withTitle: "Chat", action: #selector(openChat), keyEquivalent: "")
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit PCCat", action: #selector(quit), keyEquivalent: "q")
@@ -76,10 +105,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func showCat() { showPanel() }
-    @objc func openChat() {
-        showPanel()
-        NotificationCenter.default.post(name: .pcCatOpenChat, object: nil)
-    }
     @objc func openSettings() {
         NSApp.activate(ignoringOtherApps: true)
         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
@@ -94,7 +119,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 extension Notification.Name {
-    static let pcCatOpenChat = Notification.Name("pcCat.openChat")
 }
 
 /// Bridges the SwiftUI `Settings` scene to the shared store.

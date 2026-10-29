@@ -3,3 +3,4 @@ dist/
 renderout/
 *.log
 .DS_Store
+local/

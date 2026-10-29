@@ -1,50 +1,30 @@
 # 🐾 PCCat
 
 A desktop cat companion for macOS. PCCat lives on your screen — not in an app
-window — as a floating, always-on-top panel. It breathes, blinks, walks, naps,
-chats, and keeps its own daily rhythm, just like the real cat it's pretending to be.
-
-Inspired by [Furever Dock](https://www.fureverdock.com/), rebuilt from scratch as a
-small, fast, native app with a procedural cat instead of sprite sheets.
-
-<img src="assets/hero.png" alt="PCCat" width="380">
+window — as a floating, always-on-top panel. It naps, stretches, plays, and
+meditates, keeping its own daily rhythm, played back from Furever Dock-style
+**animated** illustrations.
 
 ## What it does
 
-- **Procedural cat rig** — a 4-limb skeleton with gradient fur, curling tail and
-  expressive eyes, blended frame-by-frame at 60 fps. No sprites, no animation files.
-- **Eight species** — tuxedo, ginger, silver tabby, siamese, calico, midnight,
-  caramel cream and snowball, each with its own fur and eye palette.
-- **Seven accessories** — scarf, collar & bell, beanie, glasses, bow tie and a
-  tiny crown.
-- **Daily rhythm** — wakes up and stretches, helps you in the morning, wants to
-  play in the afternoon, nags you to stretch and hydrate at break time, and is
-  fast asleep by 9:30 pm.
-- **AI companion** — chat through the Claude API with a warm cat persona. The cat
-  can create reminders and store durable facts about you (`remember` tool).
-  Your API key lives in the macOS Keychain, never in the file system.
-- **Living needs** — mood, energy, hunger and affection drift over time; the cat
-  murmurs to itself, asks for food, and naps when it's tired.
-- **Quick actions** — hover the cat: feed, water, tricks (sit / high five / spin), pet.
-- **Polish** — settings window, saved panel position, status-bar item,
-  ad-hoc-signed app bundle, persistent chat + memory + reminders.
-
-### Postures
-
-<img src="assets/poses.png" alt="Postures" width="860">
-
-### Species
-
-<img src="assets/species.png" alt="Species" width="860">
-
-### Accessories
-
-<img src="assets/accessories.png" alt="Accessories" width="860">
+- **Animated cat art** — the cat is a set of looping WebP animations
+  (idle, morning stretch, play, meditating, sleep) plus a flowers loop,
+  played frame-by-frame with each file's real per-frame timing.
+- **Daily rhythm** — wakes up and stretches around 9:00, offers to help at
+  10:30, wants to play at 2:30, nags you to stretch and hydrate at 4:30,
+  and is fast asleep by 9:30 pm.
+- **Quick actions** — hover the cat: feed, water, meditate, play, nap, pet.
+- **Speech bubbles** — the cat murmurs ambient lines, reacts to tricks, and
+  announces reminders.
+- **Reminders** — schedule anything; the cat pops a bubble (and a sound)
+  when it fires.
+- **Floating panel** — drag it anywhere, it stays above every window and
+  shows on all desktops; its position is remembered.
 
 ## Getting started
 
-Requires **macOS 14+** and only the **Command Line Tools** (`xcode-select --install`).
-No Xcode project needed — PCCat builds with plain Swift Package Manager.
+Requires **macOS 14+** and only the **Command Line Tools**
+(`xcode-select --install`). No Xcode project — plain Swift Package Manager.
 
 ```bash
 # clone
@@ -56,61 +36,40 @@ cd mac-cat
 open dist/PCCat.app
 ```
 
-Or run the development build directly:
+### The illustration files
 
-```bash
-swift build && .build/debug/PCCat
+The cat animations live in `local/illustrations/` (gitignored — not shipped
+in this repo):
+
+```
+local/illustrations/
+├── hero-cat.webp      idle / lying down
+├── morning-cat.webp   stretch
+├── play-cat.webp      play
+├── break-cat.webp     meditating
+├── sleep-cat.webp     nap
+└── flowers.gif        flowers loop
 ```
 
-Once it's running, the cat appears in the bottom-right of your screen. Drag it
-anywhere — it stays above every window and appears on all desktops.
-
-### Enable AI chat
-
-Open **Settings → AI** (from the menu-bar paw icon) and paste an Anthropic API
-key. It is stored in the Keychain under `com.pccat.apikey` and only ever sent
-to `api.anthropic.com`.
-
-| Model (default) | Use it for |
-|---|---|
-| `claude-sonnet-5-5` | the sweet spot for a chat pet |
-| `claude-opus-5-5` | deeper answers, slower, pricier |
-| `claude-haiku-5-5` | fast and cheap, still charming |
+`build.sh` copies them into `dist/PCCat.app/Contents/Resources/illustrations/`,
+and the app also looks in `local/illustrations/` next to the repo. Drop your
+own files in either place with the same names to change the look.
 
 ## Repository layout
 
 ```
-Package.swift          SwiftPM manifest (executable target, macOS 14+)
-build.sh               builds release + assembles dist/PCCat.app
+Package.swift            SwiftPM manifest (executable target, macOS 14+)
+build.sh                 builds release + assembles dist/PCCat.app
 Sources/PCCat/
-  PCCatApp.swift       app entry point, AppDelegate, status-bar item
-  PetPanel.swift       transparent floating NSPanel (drag, all-spaces, level)
-  PetOverlayView.swift cat canvas, speech bubble, quick actions, chat anchor
-  CatSkeleton.swift    pose library + critically-damped blending
-  PetBrain.swift       60fps clock, activities, daily routine, ambient chatter
-  CatRenderer.swift    Canvas renderer: limbs, fur gradients, tail, face
-  Store.swift          observable state, needs loop, persistence (JSON)
-  AIEngine.swift       streaming Anthropic Messages client + keychain helper
-  SettingsView.swift   settings window UI
-  ChatPanel.swift      floating chat card
-  Models.swift         species, accessories, palettes, settings
-Tools/RenderTests.swift  offscreen PNG renderer (used for the images above)
+  PCCatApp.swift         app entry point, AppDelegate, status-bar item
+  PetPanel.swift         transparent floating NSPanel (drag, all-spaces)
+  PetOverlayView.swift   cat canvas, speech bubble, quick actions
+  Illustrations.swift    animated WebP/GIF player (ImageIO frame decoder)
+  PetBrain.swift         activities, daily routine, ambient chatter
+  Store.swift            observable state, reminders, persistence
+  SettingsView.swift     settings window (name, art status, routine, reminders)
+  Models.swift           activities, settings, types
 ```
-
-### Regenerating the showcase images
-
-```bash
-./.build/release/PCCat --render-tests ./renderout   # raw PNGs
-python3 make_assets.py                               # → assets/ (used in this README)
-```
-
-## Roadmap
-
-- [ ] Pet-ization: upload a photo of your real cat, tint the rig to match its palette
-- [ ] GIPHY easter eggs and custom trick animations
-- [ ] Optional Gmail read-only integration for reminders
-- [ ] Multi-cat households (several panels at once)
-- [ ] Custom user-drawn cat in `CatRenderer`
 
 ## License
 
