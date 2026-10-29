@@ -69,9 +69,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
-        showPanel()
         buildStatusItem()
         checkReminders()
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(petClicked),
+            name: .pcCatPetClicked, object: nil)
+        // The cat walks itself onto the desk.
+        showPanel()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -80,11 +84,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: Panel
 
+    /// Show the cat with a walk-in from the nearest screen edge.
     func showPanel() {
-        if let panel { panel.orderFrontRegardless(); return }
-        let p = PetPanel(contentRect: NSRect(x: 0, y: 0, width: 400, height: 800))
+        if let panel { panel.walkIn(); return }
+        let p = PetPanel(contentRect: NSRect(x: 0, y: 0, width: 400, height: 460))
         panel = p
-        p.orderFrontRegardless()
+        p.walkIn()
+    }
+
+    /// The cat is clicked → it walks away and hides.
+    @objc func petClicked() {
+        panel?.walkOut()
     }
 
     @MainActor
@@ -118,8 +128,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-extension Notification.Name {
-}
 
 /// Bridges the SwiftUI `Settings` scene to the shared store.
 struct SettingsHostView: View {

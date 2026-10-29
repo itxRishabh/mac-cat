@@ -34,23 +34,7 @@ final class PetPanel: NSPanel {
         hosting.layer?.isOpaque = false
         contentView = hosting
 
-        if let saved = UserDefaults.standard.string(forKey: "PCCatPanelFrame") {
-            let parts = saved.split(separator: ",").compactMap { Double($0) }
-            if parts.count == 4 {
-                setFrame(NSRect(x: parts[0], y: parts[1], width: parts[2], height: parts[3]), display: true)
-                return
-            }
-        }
-        positionBottomRight()
-    }
-
-    private func positionBottomRight() {
-        guard let screen = NSScreen.main else { return }
-        let visible = screen.visibleFrame
-        let size = frame.size
-        let origin = NSPoint(x: visible.maxX - size.width - 40,
-                             y: visible.minY + 40)
-        setFrameOrigin(origin)
+        // Positioning is owned by the app delegate (walk-in animation).
     }
 
     // MARK: Dragging
@@ -75,17 +59,83 @@ final class PetPanel: NSPanel {
     override func mouseUp(with event: NSEvent) {
         super.mouseUp(with: event)
         if !isDragging {
-            // Treated as a click on the pet.
+            // Treated as a click on the pet → it walks away.
             NotificationCenter.default.post(name: .pcCatPetClicked, object: nil)
         }
         isDragging = false
-        saveFrame()
     }
 
-    private func saveFrame() {
-        let f = frame
-        UserDefaults.standard.set("\(f.origin.x),\(f.origin.y),\(f.size.width),\(f.size.height)",
-                                  forKey: "PCCatPanelFrame")
+    // MARK: - Walking
+
+    /// Walk in from the left or right screen edge to the resting spot
+    /// (bottom-centre of the main screen). The panel appears off-screen first
+    /// and eases into place, so the cat never "pops".
+    @discardableResult
+    func walkIn() -> Bool {
+        guard let screen = NSScreen.main else { orderFrontRegardless(); return false }
+        let visible = screen.visibleFrame
+        let targetX = visible.midX - frame.width / 2
+        let targetY = visible.minY + 40
+
+        let fromLeft = Bool.random()
+        let startX = fromLeft ? visible.minX - frame.width : visible.maxX
+        setFrameOrigin(NSPoint(x: startX, y: targetY))
+        orderFrontRegardless()
+        CatArt.shared.setFlip(fromLeft)   // face the direction of travel
+        animateFrameOrigin(to: NSPoint(x: targetX, y: targetY), duration: kWalkDuration)
+        return true
+    }
+
+    /// Walk off-screen to the nearer edge, then hide the panel.
+    @discardableResult
+    func walkOut() -> Bool {
+        guard let screen = NSScreen.main else { orderOut(nil); return false }
+        let visible = screen.visibleFrame
+        let exitLeft = frame.midX < visible.midX
+        CatArt.shared.setFlip(exitLeft)
+        let target: NSPoint = exitLeft
+            ? NSPoint(x: visible.minX - frame.width, y: frame.origin.y)
+            : NSPoint(x: visible.maxX, y: frame.origin.y)
+        animateFrameOrigin(to: target, duration: kWalkDuration) { [weak self] in
+            self?.orderOut(nil)
+        }
+        return true
+    }
+
+    private var walkTimer: Timer?
+    private var walkFrom: NSPoint = .zero
+    private var walkTo: NSPoint = .zero
+    private var walkStart: Date = .distantPast
+    private var walkDuration: Double = 1
+
+    /// Ease-in/out interpolation for the walk.
+    private func easeInOut(_ t: Double) -> Double {
+        t < 0.5 ? 2 * t * t : 1 - pow(-2 * t + 2, 2) / 2
+    }
+
+    private func animateFrameOrigin(to origin: NSPoint, duration: Double,
+                                    completion: (() -> Void)? = nil) {
+        walkTimer?.invalidate()
+        walkFrom = frame.origin
+        walkTo = origin
+        walkStart = Date()
+        walkDuration = duration
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
+            guard let self else { timer.invalidate(); return }
+            let t = min(1.0, Date().timeIntervalSince(self.walkStart) / self.walkDuration)
+            let e = self.easeInOut(t)
+            let x = self.walkFrom.x + (self.walkTo.x - self.walkFrom.x) * e
+            let y = self.walkFrom.y + (self.walkTo.y - self.walkFrom.y) * e
+            self.setFrameOrigin(NSPoint(x: x, y: y))
+            if t >= 1.0 {
+                timer.invalidate()
+                self.walkTimer = nil
+                completion?()
+            }
+        }
+        timer.tolerance = 0.016
+        RunLoop.main.add(timer, forMode: .common)
+        walkTimer = timer
     }
 }
 

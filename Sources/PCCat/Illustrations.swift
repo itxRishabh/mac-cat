@@ -117,6 +117,8 @@ final class CatArt: ObservableObject {
     @Published private(set) var flowersFrame: CGImage?
     @Published private(set) var sourceDescription: String = ""
     @Published private(set) var activeKind: Kind = .hero
+    /// Flip the cat horizontally (true = mirror). Set when walking left.
+    @Published private(set) var flipHorizontally = false
 
     private var cache: [Kind: CatAnimation] = [:]
     private var flowers: CatAnimation?
@@ -148,6 +150,11 @@ final class CatArt: ObservableObject {
         clock = 0
         currentFrame = cache[kind]?.frames.first
         ensure(kind)
+    }
+
+    /// Mirror the cat horizontally — true = walk left, false = walk right.
+    func setFlip(_ left: Bool) {
+        flipHorizontally = left
     }
 
     func playFlowers() {
@@ -318,6 +325,7 @@ struct CatAnimationView: View {
                     .interpolation(.high)
                     .aspectRatio(contentMode: .fit)
                     .frame(width: size, height: size)
+                    .scaleEffect(x: art.flipHorizontally ? -1 : 1, y: 1, anchor: .center)
             } else {
                 ProgressView().controlSize(.small)
             }

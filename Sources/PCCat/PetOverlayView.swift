@@ -9,7 +9,6 @@ struct PetOverlayView: View {
     @ObservedObject private var brain: PetBrain
     @ObservedObject private var art = CatArt.shared
 
-    @State private var showActions = false
     @State private var hovering = false
 
     init(store: Store) {
@@ -32,19 +31,15 @@ struct PetOverlayView: View {
                         // Little flowers loop, Furever Dock-style, next to the cat.
                         FlowersView(art: art, size: 92)
                             .offset(x: -128, y: 44)
+                            .scaleEffect(x: art.flipHorizontally ? -1 : 1, y: 1)
 
                         CatAnimationView(art: art, size: 300)
-                            .onTapGesture { store.pet() }
-                            .onHover { hovering = $0 }
+                            .onHover { inside in
+                                hovering = inside
+                                if inside { store.shoo() }
+                            }
                     } else {
                         missingArt
-                    }
-
-                    if hovering || showActions {
-                        QuickActions(store: store, showActions: $showActions)
-                            .offset(y: -8)
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                            .zIndex(8)
                     }
                 }
                 .frame(height: 320)
@@ -56,14 +51,10 @@ struct PetOverlayView: View {
             art.playFlowers()
             art.play(CatArt.kind(for: brain.activity))
         }
-        .onReceive(NotificationCenter.default.publisher(for: .pcCatPetClicked)) { _ in
-            store.pet()
-        }
         .onReceive(brain.$activity.dropFirst().removeDuplicates()) { activity in
             art.play(CatArt.kind(for: activity))
         }
         .animation(.spring(response: 0.34, dampingFraction: 0.80), value: store.bubbleText)
-        .animation(.spring(response: 0.30, dampingFraction: 0.82), value: showActions)
     }
 
     private var missingArt: some View {

@@ -79,6 +79,14 @@ final class Store: ObservableObject {
 
     // MARK: - Interaction
 
+    private var lastShoo: Date = .distantPast
+
+    func shoo() {
+        guard Date().timeIntervalSince(lastShoo) > 6 else { return }
+        lastShoo = Date()
+        say("shoo! 🚫", kind: .alert, seconds: 2.5)
+    }
+
     func pet() {
         say("hehe! pats received 💜", kind: .happy, seconds: 3)
         brain.play(.sitting, duration: 4)

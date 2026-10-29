@@ -4,7 +4,7 @@ import SwiftUI
 // MARK: - Activities
 
 enum Activity: String, Codable, CaseIterable {
-    case idle, sitting, sleeping, stretching, playing, eating, drinking, meditating
+    case idle, sitting, sleeping, stretching, playing, eating, drinking, meditating, walking
 
     var label: String {
         switch self {
@@ -16,9 +16,13 @@ enum Activity: String, Codable, CaseIterable {
         case .eating: return "eating"
         case .drinking: return "drinking"
         case .meditating: return "meditating"
+        case .walking: return "walking"
         }
     }
 }
+
+// How long the entry/exit walk takes (seconds). Shared by the panel mover and the cat brain.
+let kWalkDuration: Double = 2.4
 
 // MARK: - Memories
 
